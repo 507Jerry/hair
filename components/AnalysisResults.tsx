@@ -3,7 +3,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AnalysisData, AdviceData } from '@/types/analysis'
-import { stageInfo } from '@/lib/mock-data'
+import { stageInfo } from '@/lib/constants'
 
 interface AnalysisResultsProps {
   analysisData: AnalysisData

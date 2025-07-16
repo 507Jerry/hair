@@ -15,37 +15,7 @@ export async function checkImageQuality(imageFile: File): Promise<QualityCheckRe
   };
 }
 
-/**
- * 基于图片信息的简单分析
- */
-function generateSimpleAnalysis(imageFile: File): AnalysisData {
-  // 根据文件名、大小等生成基础分析
-  const fileName = imageFile.name.toLowerCase();
-  const fileSize = imageFile.size;
-  const timestamp = Date.now();
-  
-  // 使用文件名和大小作为种子生成不同的数据
-  const seed = fileName.length + fileSize + timestamp;
-  const random = (min: number, max: number) => {
-    return min + (seed % (max - min + 1));
-  };
-
-  // 生成基础分析数据
-  const density = random(50, 80);
-  const exposure = random(15, 35);
-  const parting = random(5, 15);
-  const stage = random(1, 2); // 大部分用户处于恢复期
-
-  return {
-    density_score: density,
-    scalp_exposure_percent: exposure,
-    parting_width_px: parting,
-    baby_hairs_visible: stage >= 1,
-    stage: stage,
-    hairline_stability: stage >= 2,
-    left_right_symmetry: "正常"
-  };
-}
+// 移除备用分析逻辑，只使用真实API
 
 /**
  * 图片分析服务（仅调用真实API）
@@ -72,13 +42,8 @@ export async function analyzeImage(imageFile: File): Promise<AnalysisData> {
       throw new Error('API返回数据格式不正确');
     }
   } catch (error) {
-    console.warn('AI分析失败，使用备用分析模式:', error);
-    
-    // 如果AI无法分析，使用备用模式
-    const simpleAnalysis = generateSimpleAnalysis(imageFile);
-    console.log('备用分析结果:', simpleAnalysis);
-    
-    return simpleAnalysis;
+    console.error('AI分析失败:', error);
+    throw error; // 直接抛出错误，不使用备用分析
   }
 }
 
@@ -98,30 +63,8 @@ export async function generateAdvice(analysisData: AnalysisData): Promise<Advice
       throw new Error('API返回数据格式不正确');
     }
   } catch (error) {
-    console.warn('AI建议生成失败，使用备用建议:', error);
-    
-    // 备用建议
-    const stage = analysisData.stage;
-    const stageAdvice = {
-      0: {
-        summary: "检测到掉发期特征，建议及时就医咨询",
-        advice: "请保持规律作息，减少压力，考虑专业治疗"
-      },
-      1: {
-        summary: "发现新生绒毛，恢复初见成效！",
-        advice: "继续保持营养补充，坚持记录变化，耐心等待"
-      },
-      2: {
-        summary: "恢复进展良好，密度明显改善",
-        advice: "继续坚持当前方案，定期拍照记录进展"
-      },
-      3: {
-        summary: "恢复效果显著，已进入稳定期",
-        advice: "继续保持良好习惯，定期检查维护"
-      }
-    };
-
-    return stageAdvice[stage as keyof typeof stageAdvice] || stageAdvice[1];
+    console.error('AI建议生成失败:', error);
+    throw error; // 直接抛出错误，不使用备用建议
   }
 }
 
