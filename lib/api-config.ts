@@ -41,6 +41,16 @@ export function fileToBase64(file: File): Promise<string> {
 }
 
 /**
+ * 检查API返回内容是否为错误信息
+ */
+function isApiErrorResponse(content: string): boolean {
+  const errorKeywords = [
+    '抱歉', '无法', '不能', '错误', '失败', 'sorry', 'cannot', 'unable', 'error', 'failed'
+  ];
+  return errorKeywords.some(keyword => content.includes(keyword));
+}
+
+/**
  * 调用GPT-4o Vision API
  */
 export async function callVisionAPI(imageBase64: string): Promise<any> {
@@ -118,6 +128,12 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
   }
 
   console.log('API返回的原始内容:', content);
+
+  // 检查是否为错误响应
+  if (isApiErrorResponse(content)) {
+    console.error('API无法处理图片:', content);
+    throw new Error(`AI无法分析这张图片，请尝试：\n1. 确保是清晰的头发照片\n2. 光线充足，角度合适\n3. 图片大小适中（建议1-5MB）\n4. 避免模糊或过暗的图片`);
+  }
 
   try {
     // 清理内容，移除可能的markdown格式
@@ -212,6 +228,12 @@ ${JSON.stringify(analysisData, null, 2)}
   }
 
   console.log('Text API返回的原始内容:', content);
+
+  // 检查是否为错误响应
+  if (isApiErrorResponse(content)) {
+    console.error('Text API无法处理请求:', content);
+    throw new Error('AI无法生成建议，请重试');
+  }
 
   try {
     // 清理内容，移除可能的markdown格式
