@@ -48,6 +48,8 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
     throw new Error('请配置OpenAI API密钥');
   }
 
+  console.log('开始调用Vision API...');
+
   const response = await fetch(`${API_CONFIG.OPENAI_API_URL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -110,25 +112,63 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('API响应错误:', response.status, response.statusText, errorText);
     throw new Error(`API调用失败: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log('API原始响应:', data);
+  
   const content = data.choices[0]?.message?.content;
   
   if (!content) {
+    console.error('API返回内容为空');
     throw new Error('API返回内容为空');
   }
 
+  console.log('API返回的原始内容:', content);
+
   try {
-    // 尝试解析JSON
+    // 尝试多种方式解析JSON
+    let jsonData = null;
+    
+    // 方法1: 直接尝试解析整个内容
+    try {
+      jsonData = JSON.parse(content);
+      console.log('直接解析成功:', jsonData);
+      return jsonData;
+    } catch (e) {
+      console.log('直接解析失败，尝试提取JSON...');
+    }
+    
+    // 方法2: 尝试提取JSON部分
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('无法解析API返回的JSON');
+      try {
+        jsonData = JSON.parse(jsonMatch[0]);
+        console.log('提取JSON解析成功:', jsonData);
+        return jsonData;
+      } catch (e) {
+        console.error('提取的JSON解析失败:', jsonMatch[0], e);
+      }
     }
+    
+    // 方法3: 尝试清理内容后解析
+    const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      jsonData = JSON.parse(cleanedContent);
+      console.log('清理后解析成功:', jsonData);
+      return jsonData;
+    } catch (e) {
+      console.error('清理后解析失败:', cleanedContent, e);
+    }
+    
+    // 如果所有方法都失败，抛出详细错误
+    throw new Error(`无法解析API返回的JSON。原始内容: ${content.substring(0, 200)}...`);
+    
   } catch (parseError) {
+    console.error('JSON解析失败:', parseError);
     throw new Error(`JSON解析失败: ${parseError}`);
   }
 }
@@ -140,6 +180,8 @@ export async function callTextAPI(analysisData: any): Promise<any> {
   if (!checkApiConfig()) {
     throw new Error('请配置OpenAI API密钥');
   }
+
+  console.log('开始调用Text API...');
 
   const response = await fetch(`${API_CONFIG.OPENAI_API_URL}/chat/completions`, {
     method: 'POST',
@@ -174,25 +216,63 @@ ${JSON.stringify(analysisData, null, 2)}
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Text API响应错误:', response.status, response.statusText, errorText);
     throw new Error(`API调用失败: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log('Text API原始响应:', data);
+  
   const content = data.choices[0]?.message?.content;
   
   if (!content) {
+    console.error('Text API返回内容为空');
     throw new Error('API返回内容为空');
   }
 
+  console.log('Text API返回的原始内容:', content);
+
   try {
-    // 尝试解析JSON
+    // 尝试多种方式解析JSON
+    let jsonData = null;
+    
+    // 方法1: 直接尝试解析整个内容
+    try {
+      jsonData = JSON.parse(content);
+      console.log('Text API直接解析成功:', jsonData);
+      return jsonData;
+    } catch (e) {
+      console.log('Text API直接解析失败，尝试提取JSON...');
+    }
+    
+    // 方法2: 尝试提取JSON部分
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('无法解析API返回的JSON');
+      try {
+        jsonData = JSON.parse(jsonMatch[0]);
+        console.log('Text API提取JSON解析成功:', jsonData);
+        return jsonData;
+      } catch (e) {
+        console.error('Text API提取的JSON解析失败:', jsonMatch[0], e);
+      }
     }
+    
+    // 方法3: 尝试清理内容后解析
+    const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      jsonData = JSON.parse(cleanedContent);
+      console.log('Text API清理后解析成功:', jsonData);
+      return jsonData;
+    } catch (e) {
+      console.error('Text API清理后解析失败:', cleanedContent, e);
+    }
+    
+    // 如果所有方法都失败，抛出详细错误
+    throw new Error(`无法解析Text API返回的JSON。原始内容: ${content.substring(0, 200)}...`);
+    
   } catch (parseError) {
+    console.error('Text API JSON解析失败:', parseError);
     throw new Error(`JSON解析失败: ${parseError}`);
   }
 } 
