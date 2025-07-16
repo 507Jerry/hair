@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -34,8 +33,8 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts 
-=======
+next-env.d.ts
+
 # Flutter/Dart specific
 .dart_tool/
 .flutter-plugins
@@ -118,5 +117,4 @@ app.*.symbols
 .env.local
 
 # API Keys (if any)
-lib/services/gpt_api_service.dart 
->>>>>>> 376170e0689cc4b5a372d96a530b466dd3120659
+lib/services/gpt_api_service.dart
