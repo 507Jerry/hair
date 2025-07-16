@@ -64,38 +64,28 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
           content: [
             {
               type: 'text',
-              text: `你是一位专业的毛发健康分析师，请根据这张头发照片提取以下结构化数据：
+              text: `请分析这张头发照片，并严格按照以下JSON格式返回结果，不要添加任何其他文字或markdown格式：
 
-分析要求：
-1. 请在光线充足的环境下分析
-2. 保持客观专业的分析态度
-3. 基于可见特征进行评估
-
-请提取以下数据：
-- density_score：头发密度评分（0-100分），数值越高说明头发越浓密
-- scalp_exposure_percent：头皮暴露率（百分比），反映稀疏程度，暴露越多头发越稀疏
-- parting_width_px：发缝宽度（像素），越宽说明顶部越稀
-- baby_hairs_visible：是否可见新生绒毛（true/false），有则说明处于恢复状态
-- stage：恢复阶段判断（0-3）
-  - 0 = 掉发期（暴露明显，无绒毛）
-  - 1 = 新生绒毛期（开始恢复）
-  - 2 = 增长期（发缝收窄）
-  - 3 = 稳定维护期（基本恢复）
-
-可选字段（如果图片包含相关信息）：
-- hairline_stability：发际线是否稳定（true/false）
-- left_right_symmetry：左右头发对称情况（"正常"/"不对称"/"未知"）
-
-请返回JSON格式：
 {
-  "density_score": 63,
-  "scalp_exposure_percent": 22.5,
-  "parting_width_px": 9.7,
-  "baby_hairs_visible": true,
-  "stage": 1,
-  "hairline_stability": true,
-  "left_right_symmetry": "正常"
-}`
+  "density_score": 数值,
+  "scalp_exposure_percent": 数值,
+  "parting_width_px": 数值,
+  "baby_hairs_visible": true或false,
+  "stage": 0到3的整数,
+  "hairline_stability": true或false,
+  "left_right_symmetry": "正常"或"不对称"或"未知"
+}
+
+评分标准：
+- density_score：头发密度评分（0-100分）
+- scalp_exposure_percent：头皮暴露率（0-100%）
+- parting_width_px：发缝宽度（像素）
+- baby_hairs_visible：是否可见新生绒毛
+- stage：恢复阶段（0=掉发期，1=新生期，2=增长期，3=稳定期）
+- hairline_stability：发际线是否稳定
+- left_right_symmetry：左右对称情况
+
+请只返回JSON，不要有任何其他内容。`
             },
             {
               type: 'image_url',
@@ -130,46 +120,39 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
   console.log('API返回的原始内容:', content);
 
   try {
-    // 尝试多种方式解析JSON
-    let jsonData = null;
+    // 清理内容，移除可能的markdown格式
+    let cleanedContent = content.trim();
     
-    // 方法1: 直接尝试解析整个内容
-    try {
-      jsonData = JSON.parse(content);
-      console.log('直接解析成功:', jsonData);
-      return jsonData;
-    } catch (e) {
-      console.log('直接解析失败，尝试提取JSON...');
+    // 移除markdown代码块
+    cleanedContent = cleanedContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    
+    // 移除可能的说明文字
+    const jsonStart = cleanedContent.indexOf('{');
+    const jsonEnd = cleanedContent.lastIndexOf('}') + 1;
+    if (jsonStart !== -1 && jsonEnd > jsonStart) {
+      cleanedContent = cleanedContent.substring(jsonStart, jsonEnd);
     }
     
-    // 方法2: 尝试提取JSON部分
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        jsonData = JSON.parse(jsonMatch[0]);
-        console.log('提取JSON解析成功:', jsonData);
-        return jsonData;
-      } catch (e) {
-        console.error('提取的JSON解析失败:', jsonMatch[0], e);
+    console.log('清理后的内容:', cleanedContent);
+    
+    // 尝试解析JSON
+    const jsonData = JSON.parse(cleanedContent);
+    console.log('JSON解析成功:', jsonData);
+    
+    // 验证必要字段
+    const requiredFields = ['density_score', 'scalp_exposure_percent', 'parting_width_px', 'baby_hairs_visible', 'stage'];
+    for (const field of requiredFields) {
+      if (!(field in jsonData)) {
+        throw new Error(`缺少必要字段: ${field}`);
       }
     }
     
-    // 方法3: 尝试清理内容后解析
-    const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    try {
-      jsonData = JSON.parse(cleanedContent);
-      console.log('清理后解析成功:', jsonData);
-      return jsonData;
-    } catch (e) {
-      console.error('清理后解析失败:', cleanedContent, e);
-    }
-    
-    // 如果所有方法都失败，抛出详细错误
-    throw new Error(`无法解析API返回的JSON。原始内容: ${content.substring(0, 200)}...`);
+    return jsonData;
     
   } catch (parseError) {
     console.error('JSON解析失败:', parseError);
-    throw new Error(`JSON解析失败: ${parseError}`);
+    console.error('原始内容:', content);
+    throw new Error(`JSON解析失败: ${parseError}. 原始内容: ${content.substring(0, 200)}...`);
   }
 }
 
@@ -194,20 +177,17 @@ export async function callTextAPI(analysisData: any): Promise<any> {
       messages: [
         {
           role: 'user',
-          content: `你是一位温暖的毛发恢复顾问，请根据以下分析结果，用温暖鼓励的语气输出：
+          content: `请根据以下分析结果，用温暖鼓励的语气输出建议。请严格按照以下JSON格式返回，不要添加任何其他文字：
 
-数据：
+{
+  "summary": "一句话的状态总结",
+  "advice": "一句话的恢复建议"
+}
+
+分析数据：
 ${JSON.stringify(analysisData, null, 2)}
 
-请输出：
-1. 一句话的状态总结（温暖鼓励的语气）
-2. 一句话的恢复建议（具体可操作）
-
-输出格式：
-{
-  "summary": "你正处于新生绒毛期，恢复初见成效！",
-  "advice": "建议继续保持营养补充和规律作息，坚持记录变化"
-}`
+请只返回JSON格式，不要有任何其他内容。`
         }
       ],
       max_tokens: 500,
@@ -234,45 +214,38 @@ ${JSON.stringify(analysisData, null, 2)}
   console.log('Text API返回的原始内容:', content);
 
   try {
-    // 尝试多种方式解析JSON
-    let jsonData = null;
+    // 清理内容，移除可能的markdown格式
+    let cleanedContent = content.trim();
     
-    // 方法1: 直接尝试解析整个内容
-    try {
-      jsonData = JSON.parse(content);
-      console.log('Text API直接解析成功:', jsonData);
-      return jsonData;
-    } catch (e) {
-      console.log('Text API直接解析失败，尝试提取JSON...');
+    // 移除markdown代码块
+    cleanedContent = cleanedContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    
+    // 移除可能的说明文字
+    const jsonStart = cleanedContent.indexOf('{');
+    const jsonEnd = cleanedContent.lastIndexOf('}') + 1;
+    if (jsonStart !== -1 && jsonEnd > jsonStart) {
+      cleanedContent = cleanedContent.substring(jsonStart, jsonEnd);
     }
     
-    // 方法2: 尝试提取JSON部分
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        jsonData = JSON.parse(jsonMatch[0]);
-        console.log('Text API提取JSON解析成功:', jsonData);
-        return jsonData;
-      } catch (e) {
-        console.error('Text API提取的JSON解析失败:', jsonMatch[0], e);
+    console.log('Text API清理后的内容:', cleanedContent);
+    
+    // 尝试解析JSON
+    const jsonData = JSON.parse(cleanedContent);
+    console.log('Text API JSON解析成功:', jsonData);
+    
+    // 验证必要字段
+    const requiredFields = ['summary', 'advice'];
+    for (const field of requiredFields) {
+      if (!(field in jsonData)) {
+        throw new Error(`缺少必要字段: ${field}`);
       }
     }
     
-    // 方法3: 尝试清理内容后解析
-    const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    try {
-      jsonData = JSON.parse(cleanedContent);
-      console.log('Text API清理后解析成功:', jsonData);
-      return jsonData;
-    } catch (e) {
-      console.error('Text API清理后解析失败:', cleanedContent, e);
-    }
-    
-    // 如果所有方法都失败，抛出详细错误
-    throw new Error(`无法解析Text API返回的JSON。原始内容: ${content.substring(0, 200)}...`);
+    return jsonData;
     
   } catch (parseError) {
     console.error('Text API JSON解析失败:', parseError);
-    throw new Error(`JSON解析失败: ${parseError}`);
+    console.error('原始内容:', content);
+    throw new Error(`JSON解析失败: ${parseError}. 原始内容: ${content.substring(0, 200)}...`);
   }
 } 
