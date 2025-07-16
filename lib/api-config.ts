@@ -59,22 +59,18 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
   }
 
   console.log('开始调用Vision API...');
+  console.log('图片Base64长度:', imageBase64.length);
+  console.log('API密钥前缀:', API_CONFIG.OPENAI_API_KEY.substring(0, 10) + '...');
 
-  const response = await fetch(`${API_CONFIG.OPENAI_API_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_CONFIG.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: API_CONFIG.VISION_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `请分析这张头发照片，并严格按照以下JSON格式返回结果，不要添加任何其他文字或markdown格式：
+  const requestBody = {
+    model: API_CONFIG.VISION_MODEL,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `请分析这张头发照片，并严格按照以下JSON格式返回结果，不要添加任何其他文字或markdown格式：
 
 {
   "density_score": 数值,
@@ -96,20 +92,33 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
 - left_right_symmetry：左右对称情况
 
 请只返回JSON，不要有任何其他内容。`
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`
-              }
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:image/jpeg;base64,${imageBase64}`
             }
-          ]
-        }
-      ],
-      max_tokens: 1000,
-      temperature: 0.1
-    })
+          }
+        ]
+      }
+    ],
+    max_tokens: 1000,
+    temperature: 0.1
+  };
+
+  console.log('API请求体大小:', JSON.stringify(requestBody).length);
+
+  const response = await fetch(`${API_CONFIG.OPENAI_API_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_CONFIG.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify(requestBody)
   });
+
+  console.log('API响应状态:', response.status, response.statusText);
+  console.log('API响应头:', Object.fromEntries(response.headers.entries()));
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -132,7 +141,7 @@ export async function callVisionAPI(imageBase64: string): Promise<any> {
   // 检查是否为错误响应
   if (isApiErrorResponse(content)) {
     console.error('API无法处理图片:', content);
-    throw new Error(`AI无法分析这张图片，请尝试：\n1. 确保是清晰的头发照片\n2. 光线充足，角度合适\n3. 图片大小适中（建议1-5MB）\n4. 避免模糊或过暗的图片`);
+    throw new Error(`AI无法分析这张图片，可能原因：\n1. 图片内容不符合AI分析要求\n2. 图片格式或大小有问题\n3. API服务暂时不可用\n\n建议：\n- 尝试上传不同角度的头发照片\n- 确保照片清晰，光线充足\n- 稍后重试`);
   }
 
   try {
